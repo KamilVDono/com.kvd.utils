@@ -1,0 +1,22 @@
+{
+  "name": "com.kvd.utils",
+  "version": "0.0.1",
+  "displayName": "KamilVDono - Utils",
+  "description": "This package contains various utils that I created for some of my project. Now all of them are available for free as Unity package.",
+  "unity": "2022.1",
+  "unityRelease": "0b2",
+  "keywords": [
+    "utils",
+    "scripts",
+    "tools"
+  ],
+  "author": {
+    "name": "KamilVDono",
+    "email": "kamilvdono@gmail.com"
+  },
+  "dependencies": {
+    "com.unity.mathematics": "1.2.5",
+    "com.unity.burst": "1.6.0",
+    "com.unity.collections": "1.1.0"
+  }
+}
