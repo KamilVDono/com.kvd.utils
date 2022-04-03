@@ -23,7 +23,7 @@ namespace KVD.Utils.Extensions
 
 		public static IEnumerable<TSource> DistinctBy<TSource, TKey>(this IEnumerable<TSource> source, Func<TSource, TKey> keySelector)
 		{
-			HashSet<TKey> seenKeys = new HashSet<TKey>();
+			var seenKeys = new HashSet<TKey>();
 			foreach (var element in source)
 			{
 				if (seenKeys.Add(keySelector(element)))
@@ -32,39 +32,7 @@ namespace KVD.Utils.Extensions
 				}
 			}
 		}
-
-		public static void ForEachSlow<T>(this IEnumerable<T> elements, Action<T> action)
-		{
-			foreach (var element in elements)
-			{
-				action(element);
-			}
-		}
 		
-		public static void ForEach<T>(this List<T> elements, Action<T> action)
-		{
-			foreach (var element in elements)
-			{
-				action(element);
-			}
-		}
-		
-		public static void ForEach<T>(this T[] elements, Action<T> action)
-		{
-			foreach (var element in elements)
-			{
-				action(element);
-			}
-		}
-		
-		public static void ForEach<T>(this NativeArray<T> elements, Action<T> action) where T : struct
-		{
-			foreach (var element in elements)
-			{
-				action(element);
-			}
-		}
-
 		public static bool HasAtLeast<T>(this IEnumerable<T> source, int minCount)
 		{
 			return source is ICollection<T> collection ? collection.Count >= minCount : source.Skip(minCount-1).Any();
@@ -101,5 +69,121 @@ namespace KVD.Utils.Extensions
 			// ReSharper disable once PossibleMultipleEnumeration
 			return itemThatSatisfyPredicate ?? source.First();
 		}
+		
+		#region Foreach
+		public static void ForEachSlow<T>(this IEnumerable<T> elements, Action<T> action)
+		{
+			foreach (var element in elements)
+			{
+				action(element);
+			}
+		}
+		
+		public static void ForEach<T>(this List<T> elements, Action<T> action)
+		{
+			foreach (var element in elements)
+			{
+				action(element);
+			}
+		}
+		
+		public static void ForEach<T>(this T[] elements, Action<T> action)
+		{
+			foreach (var element in elements)
+			{
+				action(element);
+			}
+		}
+		
+		public static void ForEach<T>(this NativeArray<T> elements, Action<T> action) where T : struct
+		{
+			foreach (var element in elements)
+			{
+				action(element);
+			}
+		}
+		#endregion Foreach
+
+		#region Sum
+		public static int Sum(this int[] array)
+		{
+			var sum = 0;
+			for (var i = 0; i < array.Length; i++)
+			{
+				sum += array[i];
+			}
+			return sum;
+		}
+		
+		public static int Sum<T>(this T[] array, Func<T, int> selector)
+		{
+			var sum = 0;
+			for (var i = 0; i < array.Length; i++)
+			{
+				sum += selector(array[i]);
+			}
+			return sum;
+		}
+		
+		public static int Sum(this List<int> list)
+		{
+			var sum = 0;
+			for (var i = 0; i < list.Count; i++)
+			{
+				sum += list[i];
+			}
+			return sum;
+		}
+		
+		public static int Sum<T>(this List<T> list, Func<T, int> selector)
+		{
+			var sum = 0;
+			for (var i = 0; i < list.Count; i++)
+			{
+				sum += selector(list[i]);
+			}
+			return sum;
+		}
+		
+		public static float Sum(this float[] array)
+		{
+			var sum = 0f;
+			for (var i = 0; i < array.Length; i++)
+			{
+				sum += array[i];
+			}
+			return sum;
+		}
+		
+		public static float Sum<T>(this T[] array, Func<T, float> selector)
+		{
+			var sum = 0f;
+			for (var i = 0; i < array.Length; i++)
+			{
+				sum += selector(array[i]);
+			}
+			return sum;
+		}
+		
+		public static float Sum(this List<float> list)
+		{
+			var sum = 0f;
+			for (var i = 0; i < list.Count; i++)
+			{
+				sum += list[i];
+			}
+			return sum;
+		}
+		
+		public static float Sum<T>(this List<T> list, Func<T, float> selector)
+		{
+			var sum = 0f;
+			for (var i = 0; i < list.Count; i++)
+			{
+				sum += selector(list[i]);
+			}
+			return sum;
+		}
+		#endregion Sum
 	}
 }
