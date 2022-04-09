@@ -98,7 +98,7 @@ namespace KVD.Utils.Editor.SizeAnalysis
 					}
 
 					// Structs
-					if (!(type.IsValueType && !type.IsEnum))
+					if (!(type.IsValueType && !type.IsEnum) || type.IsGenericType)
 					{
 						continue;
 					}
