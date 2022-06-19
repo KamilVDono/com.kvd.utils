@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 
 #nullable enable
@@ -15,7 +16,8 @@ namespace KVD.Utils.DataStructures
 			_pool    = new(initSize);
 			_creator = creator;
 		}
-		
+		public IReadOnlyCollection<T> Unused => _pool;
+
 		public T Get()
 		{
 			return _pool.Count < 1 ? _creator() : _pool.Pop();
