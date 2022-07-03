@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 
 #nullable enable
@@ -10,14 +9,20 @@ namespace KVD.Utils.DataStructures
 	{
 		private readonly Stack<T> _pool;
 		private readonly Func<T> _creator;
+		
+		// For safety it should be a IReadonlyCollection, but then there is garbage creation :( 
+		public Stack<T> Unused => _pool;
 
 		public SimplePool(int initSize, Func<T> creator)
 		{
 			_pool    = new(initSize);
 			_creator = creator;
+			for (var i = 0; i < initSize; i++)
+			{
+				_pool.Push(_creator());
+			}
 		}
-		public IReadOnlyCollection<T> Unused => _pool;
-
+		
 		public T Get()
 		{
 			return _pool.Count < 1 ? _creator() : _pool.Pop();
