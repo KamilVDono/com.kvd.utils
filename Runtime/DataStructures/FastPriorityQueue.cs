@@ -4,7 +4,7 @@ using Unity.Collections;
 
 namespace KVD.Utils.DataStructures
 {
-	[BurstCompatible]
+	[GenerateTestsForBurstCompatibility]
 	public struct FastPriorityQueue<T> : IDisposable where T : unmanaged, IEquatable<T>
 	{
 		private int _numNodes;
