@@ -24,7 +24,7 @@ namespace KVD.Utils
 			
 			var renderingStateInfo = new GUIContent(
 				$"Graphics API: {SystemInfo.graphicsDeviceType}"+
-				$"Multithreading mode: {SystemInfo.renderingThreadingMode}"+
+				$"\nMultithreading mode: {SystemInfo.renderingThreadingMode}"+
 #if UNITY_EDITOR
 				$"\nMultithreading: {UnityEditor.PlayerSettings.MTRendering}"+
 				$"\nGraphics jobs: {UnityEditor.PlayerSettings.graphicsJobs}-{UnityEditor.PlayerSettings.graphicsJobMode}"+
