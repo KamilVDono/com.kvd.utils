@@ -183,6 +183,18 @@ namespace KVD.Utils.Editor
 			return type;
 		}
 
+		public static SerializedProperty FindBackedProperty(this SerializedObject serializedObject, string propertyName)
+		{
+			var backedName = $"<{propertyName}>k__BackingField";
+			return serializedObject.FindProperty(backedName);
+		}
+		
+		public static SerializedProperty FindBackedProperty(this SerializedProperty serializedProperty, string propertyName)
+		{
+			var backedName = $"<{propertyName}>k__BackingField";
+			return serializedProperty.FindPropertyRelative(backedName);
+		}
+
 		// === Draw array
 		public static void DrawArray(this SerializedProperty list, Action<SerializedProperty> elementDraw)
 		{
