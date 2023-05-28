@@ -194,6 +194,12 @@ namespace KVD.Utils.Editor
 			var backedName = $"<{propertyName}>k__BackingField";
 			return serializedProperty.FindPropertyRelative(backedName);
 		}
+		
+		public static bool HasName(this SerializedProperty serializedProperty, string propertyName)
+		{
+			return serializedProperty.name == propertyName ||
+			       serializedProperty.name == $"<{propertyName}>k__BackingField";
+		}
 
 		// === Draw array
 		public static void DrawArray(this SerializedProperty list, Action<SerializedProperty> elementDraw)
