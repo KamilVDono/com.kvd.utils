@@ -7,19 +7,19 @@ namespace KVD.Utils.DataStructures
 	[GenerateTestsForBurstCompatibility]
 	public struct FastPriorityQueue<T> : IDisposable where T : unmanaged, IEquatable<T>
 	{
-		private int _numNodes;
-		private NativeArray<T> _nodes;
+		private uint _numNodes;
+		private UnsafeArray<T> _nodes;
 		private NativeHashMap<T, NodeData> _dataByNode;
 		
-		public int Count => _numNodes;
+		public uint Count => _numNodes;
 
-		public int MaxSize => _nodes.Length-1;
+		public uint MaxSize => _nodes.Length-1;
 
-		public FastPriorityQueue(int maxNodes, Allocator allocator = Allocator.Temp)
+		public FastPriorityQueue(uint maxNodes, Allocator allocator = Allocator.Temp)
 		{
 			_numNodes   = 0;
 			_nodes      = new(maxNodes, allocator);
-			_dataByNode = new(maxNodes, allocator);
+			_dataByNode = new((int)maxNodes, allocator);
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -110,7 +110,7 @@ namespace KVD.Utils.DataStructures
 
 		public bool IsValidQueue()
 		{
-			for (var i = 1; i < _nodes.Length; i++)
+			for (var i = 1u; i < _nodes.Length; i++)
 			{
 				var childLeftIndex = 2*i;
 				if (childLeftIndex < _nodes.Length && HasHigherPriority(_dataByNode[_nodes[childLeftIndex]], _dataByNode[_nodes[i]]))
@@ -155,7 +155,7 @@ namespace KVD.Utils.DataStructures
 		private void CascadeUp(T node, NodeData data)
 		{
 			//aka Heapify-up
-			int parent;
+			uint parent;
 			if (data.queueIndex > 1)
 			{
 				parent = data.queueIndex >> 1;
@@ -370,7 +370,7 @@ namespace KVD.Utils.DataStructures
 		private struct NodeData
 		{
 			public float priority;
-			public int queueIndex;
+			public uint queueIndex;
 		}
 	}
 }
