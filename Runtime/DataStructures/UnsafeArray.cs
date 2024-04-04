@@ -191,7 +191,7 @@ namespace KVD.Utils.DataStructures
 			{
 				_array  = array._array;
 				_length = array._length;
-				_index  = 0;
+				_index  = uint.MaxValue;
 			}
 
 			public void Dispose() {}
