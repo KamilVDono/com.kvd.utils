@@ -1,10 +1,8 @@
 {
   "name": "com.kvd.utils",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "displayName": "KamilVDono - Utils",
   "description": "This package contains various utils that I created for some of my project. Now all of them are available for free as Unity package.",
-  "unity": "2022.1",
-  "unityRelease": "0b2",
   "keywords": [
     "utils",
     "scripts",
@@ -19,5 +17,6 @@
     "com.unity.burst": "1.8.3",
     "com.unity.collections": "2.1.0-pre.18",
     "com.unity.inputsystem": "1.5.1"
-  }
+  },
+  "hideInEditor": false
 }
