@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
@@ -260,6 +261,7 @@ namespace KVD.Utils.DataStructures
 			}
 		}
 
+		[BurstCompile]
 		struct DisposeJob : IJob
 		{
 			[NativeDisableUnsafePtrRestriction] public T* array;
