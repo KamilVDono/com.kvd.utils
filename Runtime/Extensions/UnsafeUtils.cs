@@ -10,46 +10,22 @@ namespace KVD.Utils.Extensions
 			UnsafeUtility.MemCpyReplicate(destination, &value, UnsafeUtility.SizeOf<T>(), count);
 		}
 
-		public static unsafe void Resize<T>(ref T* destination, Allocator allocator, int oldCount, int newCount) where T : unmanaged
+		public static unsafe void Resize<T>(T** destination, Allocator allocator, int oldCount, int newCount) where T : unmanaged
 		{
-			var newArray = (T*)UnsafeUtility.Malloc(newCount*UnsafeUtility.SizeOf<T>(), UnsafeUtility.AlignOf<T>(), allocator);
-			UnsafeUtility.MemCpy(newArray, destination, oldCount*UnsafeUtility.SizeOf<T>());
-			UnsafeUtility.Free(destination, allocator);
-			destination = newArray;
+			Resize((void**)destination, allocator, oldCount, newCount, UnsafeUtility.SizeOf<T>(), UnsafeUtility.AlignOf<T>());
 		}
 
-		public static unsafe void Resize<T>(ref void* destination, Allocator allocator, int oldCount, int newCount) where T : unmanaged
+		public static unsafe void Resize<T>(void** destination, Allocator allocator, int oldCount, int newCount) where T : unmanaged
 		{
-			var newArray = UnsafeUtility.Malloc(newCount*UnsafeUtility.SizeOf<T>(), UnsafeUtility.AlignOf<T>(), allocator);
-			UnsafeUtility.MemCpy(newArray, destination, oldCount*UnsafeUtility.SizeOf<T>());
-			UnsafeUtility.Free(destination, allocator);
-			destination = newArray;
+			Resize(destination, allocator, oldCount, newCount, UnsafeUtility.SizeOf<T>(), UnsafeUtility.AlignOf<T>());
 		}
 
-		public static unsafe void Resize<T, TU>(ref TU* destination, Allocator allocator, int oldCount, int newCount)
-			where T : unmanaged where TU : unmanaged
-		{
-			var newArray = UnsafeUtility.Malloc(newCount*UnsafeUtility.SizeOf<T>(), UnsafeUtility.AlignOf<T>(), allocator);
-			UnsafeUtility.MemCpy(newArray, destination, oldCount*UnsafeUtility.SizeOf<T>());
-			UnsafeUtility.Free(destination, allocator);
-			destination = (TU*)newArray;
-		}
-
-		public static unsafe void Resize<T>(ref T* destination, Allocator allocator, int oldCount, int newCount, int elementSize, int elementAlignment)
-			where T : unmanaged
+		public static unsafe void Resize(void** destination, Allocator allocator, int oldCount, int newCount, int elementSize, int elementAlignment)
 		{
 			var newArray = UnsafeUtility.Malloc(newCount*elementSize, elementAlignment, allocator);
-			UnsafeUtility.MemCpy(newArray, destination, oldCount*elementSize);
-			UnsafeUtility.Free(destination, allocator);
-			destination = (T*)newArray;
-		}
-
-		public static unsafe void Resize(ref void* destination, Allocator allocator, int oldCount, int newCount, int elementSize, int elementAlignment)
-		{
-			var newArray = UnsafeUtility.Malloc(newCount*elementSize, elementAlignment, allocator);
-			UnsafeUtility.MemCpy(newArray, destination, oldCount*elementSize);
-			UnsafeUtility.Free(destination, allocator);
-			destination = newArray;
+			UnsafeUtility.MemCpy(newArray, *destination, oldCount*elementSize);
+			UnsafeUtility.Free(*destination, allocator);
+			*destination = newArray;
 		}
 
 		public static unsafe T* AsPtr<T>(ref T value) where T : unmanaged
