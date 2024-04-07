@@ -1,6 +1,6 @@
 using System;
 
-namespace Unity.IL2CPP.CompilerServices.Unity.Il2Cpp
+namespace Unity.IL2CPP.CompilerServices
 {
     /// <summary>
     /// The code generation options available for IL to C++ conversion.
