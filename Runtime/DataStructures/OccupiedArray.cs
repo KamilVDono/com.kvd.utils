@@ -89,7 +89,7 @@ namespace KVD.Utils.DataStructures
 		{
 			OccupiedArray<T> _data;
 
-			public DebugView(in OccupiedArray<T> data)
+			public DebugView(OccupiedArray<T> data)
 			{
 				_data = data;
 			}
