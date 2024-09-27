@@ -36,6 +36,18 @@ namespace KVD.Utils.DataStructures
 			}
 		}
 
+		public ref T this[int index]
+		{
+			[MethodImpl(MethodImplOptions.AggressiveInlining)]
+			get
+			{
+#if UNITY_EDITOR || DEBUG
+				Assert.IsTrue(index < _length);
+#endif
+				return ref *(_array+index);
+			}
+		}
+
 		public T* Ptr => _array;
 		public Allocator Allocator => _allocator;
 
@@ -65,7 +77,7 @@ namespace KVD.Utils.DataStructures
 			UnsafeUtility.MemClear(_array, this.Length*UnsafeUtility.SizeOf<T>());
 		}
 
-		UnsafeArray(T* backingArray, uint length)
+		public UnsafeArray(T* backingArray, uint length)
 		{
 			_length    = length;
 			_allocator = Allocator.None;
@@ -132,7 +144,7 @@ namespace KVD.Utils.DataStructures
 			*(U*)startPtr = data;
 		}
 
-		public NativeArray<T> AsNativeArray()
+		public readonly NativeArray<T> AsNativeArray()
 		{
 			var array = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<T>(_array, (int)_length,
 				Allocator.None);

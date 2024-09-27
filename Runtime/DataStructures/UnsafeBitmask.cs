@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Runtime.CompilerServices;
 using Unity.Burst;
+using Unity.Burst.CompilerServices;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.IL2CPP.CompilerServices;
@@ -78,6 +79,15 @@ namespace KVD.Utils.DataStructures
 		}
 
 		[Il2CppSetOption(Option.ArrayBoundsChecks, false), Il2CppSetOption(Option.NullChecks, false)]
+		public bool this[int index]
+		{
+			[MethodImpl(MethodImplOptions.AggressiveInlining)]
+			get => this[AssumePositive(index)];
+			[MethodImpl(MethodImplOptions.AggressiveInlining)]
+			set => this[AssumePositive(index)] = value;
+		}
+
+		[Il2CppSetOption(Option.ArrayBoundsChecks, false), Il2CppSetOption(Option.NullChecks, false)]
 		public bool this[uint index]
 		{
 			[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -110,6 +120,13 @@ namespace KVD.Utils.DataStructures
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		[Il2CppSetOption(Option.ArrayBoundsChecks, false), Il2CppSetOption(Option.NullChecks, false)]
+		public void Up(int index)
+		{
+			Up(AssumePositive(index));
+		}
+
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[Il2CppSetOption(Option.ArrayBoundsChecks, false), Il2CppSetOption(Option.NullChecks, false)]
 		public void Up(uint index)
 		{
 			_masks[Bucket(index)] |= BucketIndexMask(index);
@@ -120,6 +137,29 @@ namespace KVD.Utils.DataStructures
 		public void Down(uint index)
 		{
 			_masks[Bucket(index)] &= ~BucketIndexMask(index);
+		}
+
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[Il2CppSetOption(Option.ArrayBoundsChecks, false), Il2CppSetOption(Option.NullChecks, false)]
+		public void Down(uint index, uint length)
+		{
+			var startBucket = Bucket(index);
+			var endBucket = Bucket(index + length - 1);
+			var startMask = (1ul << (int)BucketIndex(index)) - 1;
+			var endMask = ~((1ul << (int)BucketIndex(index + length)) - 1);
+			if (startBucket == endBucket)
+			{
+				_masks[startBucket] &= startMask | endMask;
+			}
+			else
+			{
+				_masks[startBucket] &= startMask;
+				_masks[endBucket] &= endMask;
+				for (var i = startBucket + 1; i < endBucket; i++)
+				{
+					_masks[i] = 0;
+				}
+			}
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -194,6 +234,21 @@ namespace KVD.Utils.DataStructures
 					return i*64+math.tzcnt(_masks[i]);
 				}
 			}
+			return -1;
+		}
+
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public readonly int LastOne()
+		{
+			var bucketsLength = BucketsLength;
+			for (var i = bucketsLength - 1; i >= 0; i--)
+			{
+				if (_masks[i] != 0)
+				{
+					return i * 64 + (63 - math.lzcnt(_masks[i]));
+				}
+			}
+
 			return -1;
 		}
 
@@ -317,6 +372,13 @@ namespace KVD.Utils.DataStructures
 		static ulong BucketIndexMask(uint index)
 		{
 			return 1ul << (int)BucketIndex(index);
+		}
+
+		[return: AssumeRange(0, int.MaxValue)]
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		internal static uint AssumePositive(int value)
+		{
+			return (uint)value;
 		}
 
 		public ref struct OnesEnumerator

@@ -35,5 +35,20 @@ namespace KVD.Utils.Extensions
 			UnsafeUtility.MemCpy(array.Ptr, list.Ptr, array.Length * UnsafeUtility.SizeOf<T>());
 			list.Dispose();
 		}
+
+		public static UnsafeArray<T> AsUnsafeArray<T>(this NativeArray<T> array) where T : unmanaged
+		{
+			return new UnsafeArray<T>((T*)array.GetUnsafePtr(), (uint)array.Length);
+		}
+
+		public static UnsafeArray<T> AsUnsafeArray<T>(this UnsafeList<T> list) where T : unmanaged
+		{
+			return new UnsafeArray<T>(list.Ptr, (uint)list.Length);
+		}
+
+		public static UnsafeArray<T> AsUnsafeArray<T>(this NativeList<T> list) where T : unmanaged
+		{
+			return new UnsafeArray<T>(list.GetUnsafePtr(), (uint)list.Length);
+		}
 	}
 }
