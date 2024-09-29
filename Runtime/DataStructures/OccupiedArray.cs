@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using KVD.Utils.Debugging;
 using Unity.Collections;
-using UnityEngine.Assertions;
 
 namespace KVD.Utils.DataStructures
 {
@@ -10,6 +10,7 @@ namespace KVD.Utils.DataStructures
 	[DebuggerTypeProxy(typeof(OccupiedArray<>.DebugView))]
 	public struct OccupiedArray<T> where T : unmanaged
 	{
+		static readonly T s_dummy = default;
 		public const uint InvalidIndex = unchecked((uint)-1);
 
 		public UnsafeArray<T> array;
@@ -19,6 +20,7 @@ namespace KVD.Utils.DataStructures
 		public readonly int LengthInt => array.LengthInt;
 		public readonly bool IsCreated => array.IsCreated;
 		public uint LastTakenCount => (uint)(occupied.LastOne()+1);
+		public int JobScheduleLength => occupied.LastOne()+1;
 
 		public ref T this[uint index]
 		{
@@ -26,7 +28,7 @@ namespace KVD.Utils.DataStructures
 			get
 			{
 #if UNITY_EDITOR || DEBUG
-				Assert.IsTrue(occupied[index]);
+				Assert.IsTrue(occupied[index], "Index is not occupied");
 #endif
 				return ref array[index];
 			}
@@ -38,7 +40,7 @@ namespace KVD.Utils.DataStructures
 			get
 			{
 #if UNITY_EDITOR || DEBUG
-				Assert.IsTrue(occupied[index]);
+				Assert.IsTrue(occupied[index], "Index is not occupied");
 #endif
 				return ref array[index];
 			}
@@ -56,9 +58,27 @@ namespace KVD.Utils.DataStructures
 			occupied.Dispose();
 		}
 
-		public bool IsOccupied(uint index)
+		public readonly bool IsOccupied(uint index)
 		{
 			return occupied[index];
+		}
+
+		public unsafe ref readonly T TryGet(uint index, out bool success)
+		{
+#if UNITY_EDITOR
+			success = occupied.Has(index);
+#else
+			success = occupied[index];
+#endif
+
+			if (success)
+			{
+				return ref array[index];
+			}
+			else
+			{
+				return ref s_dummy;
+			}
 		}
 
 		public bool TryInsert(T value, out uint uSlot)

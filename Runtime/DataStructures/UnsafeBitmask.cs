@@ -5,11 +5,13 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.CompilerServices;
+using KVD.Utils.Extensions;
 using Unity.Burst;
 using Unity.Burst.CompilerServices;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.IL2CPP.CompilerServices;
+using Unity.Jobs;
 using Unity.Mathematics;
 
 namespace KVD.Utils.DataStructures
@@ -78,13 +80,32 @@ namespace KVD.Utils.DataStructures
 			_masks = null;
 		}
 
+		public JobHandle Dispose(JobHandle dependency)
+		{
+			if (!IsCreated)
+			{
+				return dependency;
+			}
+			if (_allocator > Allocator.None)
+			{
+				var job = new NativeCollectionsExt.DisposeJob
+				{
+					array     = _masks,
+					allocator = _allocator
+				};
+				return job.Schedule(dependency);
+			}
+
+			return dependency;
+		}
+
 		[Il2CppSetOption(Option.ArrayBoundsChecks, false), Il2CppSetOption(Option.NullChecks, false)]
 		public bool this[int index]
 		{
 			[MethodImpl(MethodImplOptions.AggressiveInlining)]
-			get => this[AssumePositive(index)];
+			get => this[(uint)AssumePositive(index)];
 			[MethodImpl(MethodImplOptions.AggressiveInlining)]
-			set => this[AssumePositive(index)] = value;
+			set => this[(uint)AssumePositive(index)] = value;
 		}
 
 		[Il2CppSetOption(Option.ArrayBoundsChecks, false), Il2CppSetOption(Option.NullChecks, false)]
@@ -122,7 +143,7 @@ namespace KVD.Utils.DataStructures
 		[Il2CppSetOption(Option.ArrayBoundsChecks, false), Il2CppSetOption(Option.NullChecks, false)]
 		public void Up(int index)
 		{
-			Up(AssumePositive(index));
+			Up((uint)AssumePositive(index));
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -376,9 +397,9 @@ namespace KVD.Utils.DataStructures
 
 		[return: AssumeRange(0, int.MaxValue)]
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		internal static uint AssumePositive(int value)
+		internal static int AssumePositive(int value)
 		{
-			return (uint)value;
+			return value;
 		}
 
 		public ref struct OnesEnumerator

@@ -147,6 +147,11 @@ namespace KVD.Utils.Extensions
 			return new ReverseUnsafeArraySearchIterator<T, U>(array, searchElement);
 		}
 
+		public static ReverseOccupiedArraySearchIterator<T, U> FindAllIndicesRevers<T, U>(this in OccupiedArray<T> array, U searchElement) where T : unmanaged where U : unmanaged, IEquatable<T>
+		{
+			return new ReverseOccupiedArraySearchIterator<T, U>(array, searchElement);
+		}
+
 		public static void EnsureLength<T>(this ref NativeList<T> list, int length) where T : unmanaged
 		{
 			if (list.Length < length)
@@ -338,6 +343,34 @@ namespace KVD.Utils.Extensions
 			public uint Current => (uint)_currentIndex;
 		}
 
+		public ref struct ReverseOccupiedArraySearchIterator<T, U> where T : unmanaged where U : unmanaged, IEquatable<T>
+		{
+			readonly OccupiedArray<T> _array;
+			readonly U _searchElement;
+			long _currentIndex;
+
+			public ReverseOccupiedArraySearchIterator(OccupiedArray<T> array, U searchElement)
+			{
+				_array = array;
+				_searchElement = searchElement;
+				_currentIndex = array.LastTakenCount;
+			}
+
+			public ReverseOccupiedArraySearchIterator<T, U> GetEnumerator() => this;
+
+			public bool MoveNext()
+			{
+				do
+				{
+					_currentIndex--;
+				}
+				while (_currentIndex >= 0 & (!_array.IsOccupied((uint)_currentIndex) || !_searchElement.Equals(_array[(uint)_currentIndex])));
+				return _currentIndex >= 0;
+			}
+
+			public uint Current => (uint)_currentIndex;
+		}
+
 		public static UnsafeArray<T> ToUnsafeArray<T>(this List<T> list, Allocator allocator) where T : unmanaged
 		{
 			var array = new UnsafeArray<T>((uint)list.Count, allocator);
@@ -361,6 +394,22 @@ namespace KVD.Utils.Extensions
 		public interface IConverter<in T, out U> where T : unmanaged where U : unmanaged
 		{
 			U Convert(T value);
+		}
+
+		[BurstCompile]
+		public unsafe struct DisposeJob : IJob
+		{
+			[NativeDisableUnsafePtrRestriction] public void* array;
+			public Allocator allocator;
+
+			public void Execute()
+			{
+#if TRACK_MEMORY
+				UnsafeUtility.FreeTracked(array, allocator);
+#else
+				UnsafeUtility.Free(array, allocator);
+#endif
+			}
 		}
 	}
 }

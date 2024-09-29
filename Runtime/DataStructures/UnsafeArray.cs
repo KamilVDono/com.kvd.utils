@@ -2,11 +2,12 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using KVD.Utils.Debugging;
+using KVD.Utils.Extensions;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
-using UnityEngine.Assertions;
 
 namespace KVD.Utils.DataStructures
 {
@@ -30,7 +31,7 @@ namespace KVD.Utils.DataStructures
 			get
 			{
 #if UNITY_EDITOR || DEBUG
-				Assert.IsTrue(index < _length);
+				Assert.ArrayIndex(index, _length);
 #endif
 				return ref *(_array+index);
 			}
@@ -42,7 +43,7 @@ namespace KVD.Utils.DataStructures
 			get
 			{
 #if UNITY_EDITOR || DEBUG
-				Assert.IsTrue(index < _length);
+				Assert.ArrayIndex(index, _length);
 #endif
 				return ref *(_array+index);
 			}
@@ -97,7 +98,7 @@ namespace KVD.Utils.DataStructures
 			_array = null;
 		}
 
-		public JobHandle Dispose(JobHandle dependencies)
+		public readonly JobHandle Dispose(JobHandle dependencies)
 		{
 			if (!IsCreated)
 			{
@@ -105,7 +106,7 @@ namespace KVD.Utils.DataStructures
 			}
 			if (_allocator > Allocator.None)
 			{
-				var job = new DisposeJob
+				var job = new NativeCollectionsExt.DisposeJob
 				{
 					array     = _array,
 					allocator = _allocator
@@ -239,7 +240,7 @@ namespace KVD.Utils.DataStructures
 				get
 				{
 #if UNITY_EDITOR || DEBUG
-					Assert.IsTrue(index < _length);
+					Assert.ArrayIndex(index, _length);
 #endif
 					return ref *(_array+index);
 				}
@@ -270,22 +271,6 @@ namespace KVD.Utils.DataStructures
 					}
 					return _data.ToManagedArray();
 				}
-			}
-		}
-
-		[BurstCompile]
-		struct DisposeJob : IJob
-		{
-			[NativeDisableUnsafePtrRestriction] public T* array;
-			public Allocator allocator;
-
-			public void Execute()
-			{
-#if TRACK_MEMORY
-				UnsafeUtility.FreeTracked(array, allocator);
-#else
-				UnsafeUtility.Free(array, allocator);
-#endif
 			}
 		}
 	}
