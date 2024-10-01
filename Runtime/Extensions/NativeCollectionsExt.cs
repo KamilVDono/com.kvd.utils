@@ -364,7 +364,7 @@ namespace KVD.Utils.Extensions
 				{
 					_currentIndex--;
 				}
-				while (_currentIndex >= 0 & (!_array.IsOccupied((uint)_currentIndex) || !_searchElement.Equals(_array[(uint)_currentIndex])));
+				while (_currentIndex >= 0 && (!_array.IsOccupied((uint)_currentIndex) || !_searchElement.Equals(_array[(uint)_currentIndex])));
 				return _currentIndex >= 0;
 			}
 
