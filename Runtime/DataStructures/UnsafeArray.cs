@@ -175,6 +175,11 @@ namespace KVD.Utils.DataStructures
 			return new NativeAllocation(_array, _allocator);
 		}
 
+		public ReadOnlySpan<ulong> AsReadOnlySpan()
+		{
+			return new ReadOnlySpan<ulong>(_array, (int)_length);
+		}
+
 		public static implicit operator UnsafeArray<T>.Span(UnsafeArray<T> array)
 		{
 			return FromExistingData(array._array, array._length);
