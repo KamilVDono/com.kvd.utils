@@ -34,6 +34,8 @@ namespace KVD.Utils.DataStructures
 		public readonly ushort BucketsLength => _elementsLength == 0 ? (ushort)0 : (ushort)(Bucket(_elementsLength-1)+1);
 		public readonly uint ElementsLength => _elementsLength;
 
+		public readonly ulong* Ptr => _masks;
+
 		public UnsafeBitmask(uint elementsLength, Allocator allocator)
 		{
 			_elementsLength     = elementsLength;
