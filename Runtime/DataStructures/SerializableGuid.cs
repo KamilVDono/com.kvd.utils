@@ -5,22 +5,32 @@ using UnityEngine;
 namespace KVD.Utils.DataStructures
 {
 	[StructLayout(LayoutKind.Explicit), Serializable]
-	public struct SerializableGuid : IEquatable<SerializableGuid>
+	public unsafe struct SerializableGuid : IComparable<SerializableGuid>, IComparable<Guid>, IEquatable<SerializableGuid>, IEquatable<Guid>, IFormattable
 	{
 		[FieldOffset(0)] public Guid Guid;
-		[FieldOffset(0), SerializeField] int _guidPart1;
-		[FieldOffset(4), SerializeField] int _guidPart2;
-		[FieldOffset(8), SerializeField] int _guidPart3;
-		[FieldOffset(12), SerializeField] int _guidPart4;
+		[FieldOffset(0), SerializeField] fixed ulong _value[2];
 
-		public SerializableGuid(Guid guid)
+		public SerializableGuid(ulong part1, ulong part2)
 		{
-			_guidPart1 = 0;
-			_guidPart2 = 0;
-			_guidPart3 = 0;
-			_guidPart4 = 0;
+			Guid = Guid.Empty;
+			_value[0] = part1;
+			_value[1] = part2;
+		}
+
+		public SerializableGuid(in Guid guid)
+		{
+			_value[0] = 0;
+			_value[1] = 0;
 			Guid = guid;
 		}
+
+#if UNITY_EDITOR
+		public SerializableGuid(UnityEditor.GUID guid) : this(guid.ToString())
+		{
+		}
+#endif
+
+		public SerializableGuid(string guidString) : this(Guid.Parse(guidString)) {}
 
 		public static SerializableGuid NewGuid()
 		{
@@ -32,74 +42,49 @@ namespace KVD.Utils.DataStructures
 			return uGuid.Guid;
 		}
 
-		public int CompareTo(SerializableGuid other)
+		public readonly int CompareTo(SerializableGuid other)
 		{
 			return Guid.CompareTo(other.Guid);
 		}
 
-		public int CompareTo(Guid other)
+		public readonly int CompareTo(Guid other)
 		{
 			return Guid.CompareTo(other);
 		}
 
-		public int CompareTo(object obj)
+		public readonly int CompareTo(object obj)
 		{
-			if (obj == null)
+			return obj switch
 			{
-				return -1;
-			}
-
-			if (obj is SerializableGuid serializableGuid)
-			{
-				return serializableGuid.Guid.CompareTo(Guid);
-			}
-
-			if (obj is Guid guid)
-			{
-				return guid.CompareTo(Guid);
-			}
-
-			return -1;
+				SerializableGuid serializableGuid => Guid.CompareTo(serializableGuid.Guid),
+				Guid guid                         => Guid.CompareTo(guid),
+				_                                 => -1
+			};
 		}
 
-		public bool Equals(SerializableGuid other)
+		public readonly bool Equals(SerializableGuid other)
 		{
 			return Guid == other;
 		}
 
-		public bool Equals(Guid other)
+		public readonly bool Equals(Guid other)
 		{
 			return Guid == other;
 		}
 
-		public override bool Equals(object obj)
+		public readonly override bool Equals(object obj)
 		{
-			if (obj == null)
+			return obj switch
 			{
-				return false;
-			}
-
-			if (obj is SerializableGuid serializableGuid)
-			{
-				return Guid == serializableGuid.Guid;
-			}
-
-			if (obj is Guid guid)
-			{
-				return Guid == guid;
-			}
-
-			return false;
+				SerializableGuid serializableGuid => Guid == serializableGuid.Guid,
+				Guid guid                         => Guid == guid,
+				_                                 => false
+			};
 		}
 
 		public override int GetHashCode()
 		{
 			return Guid.GetHashCode();
-		}
-
-		public override string ToString()
-		{
-			return Guid.ToString();
 		}
 
 		public static bool operator ==(SerializableGuid a, SerializableGuid b)
@@ -110,6 +95,27 @@ namespace KVD.Utils.DataStructures
 		public static bool operator !=(SerializableGuid a, SerializableGuid b)
 		{
 			return !a.Equals(b);
+		}
+
+		public readonly override string ToString()
+		{
+			return Guid.ToString();
+		}
+
+		public readonly string ToString(string format)
+		{
+			return Guid.ToString(format);
+		}
+
+		public readonly string ToString(string format, IFormatProvider formatProvider)
+		{
+			return Guid.ToString(format, formatProvider);
+		}
+
+		public struct EditorAccess
+		{
+			public static ulong Value0(in SerializableGuid guid) => guid._value[0];
+			public static ulong Value1(in SerializableGuid guid) => guid._value[1];
 		}
 	}
 }

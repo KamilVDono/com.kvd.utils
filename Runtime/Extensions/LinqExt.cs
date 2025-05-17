@@ -40,9 +40,9 @@ namespace KVD.Utils.Extensions
 
 		public static IEnumerable<T> SkipLastN<T>(this IEnumerable<T> source, int n)
 		{
-			var  it = source.GetEnumerator();
-			bool hasRemainingItems;
-			var  cache = new Queue<T>(n+1);
+			var it = source.GetEnumerator();
+			var hasRemainingItems = false;
+			var cache = new Queue<T>(n+1);
 
 			do
 			{

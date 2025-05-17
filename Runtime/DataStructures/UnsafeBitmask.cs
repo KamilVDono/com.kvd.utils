@@ -38,8 +38,8 @@ namespace KVD.Utils.DataStructures
 
 		public UnsafeBitmask(uint elementsLength, Allocator allocator)
 		{
-			_elementsLength     = elementsLength;
-			_allocator          = allocator;
+			_elementsLength = elementsLength;
+			_allocator = allocator;
 			_lastMaskComplement = ~0u; // Not real value, will be recalculated in separate method
 			var bucketLength = Bucket(_elementsLength-1)+1;
 #if TRACK_MEMORY
@@ -56,7 +56,7 @@ namespace KVD.Utils.DataStructures
 		public UnsafeBitmask(UnsafeBitmask other, Allocator allocator)
 		{
 			_elementsLength = other._elementsLength;
-			_allocator      = allocator;
+			_allocator = allocator;
 			_lastMaskComplement = other._lastMaskComplement;
 			var bucketLength = Bucket(_elementsLength-1)+1;
 #if TRACK_MEMORY
@@ -71,6 +71,12 @@ namespace KVD.Utils.DataStructures
 
 		public void Dispose()
 		{
+#if DEBUG || UNITY_EDITOR
+			if (_allocator == Allocator.Invalid)
+			{
+				UnityEngine.Debug.LogError($"Calling Dispose on already Disposed {nameof(UnsafeBitmask)}");
+			}
+#endif
 			if (_allocator > Allocator.None)
 			{
 #if TRACK_MEMORY
@@ -79,25 +85,29 @@ namespace KVD.Utils.DataStructures
 				UnsafeUtility.Free(_masks, _allocator);
 #endif
 			}
-			_masks = null;
+			this = default;
 		}
 
 		public JobHandle Dispose(JobHandle dependency)
 		{
-			if (!IsCreated)
+#if DEBUG || UNITY_EDITOR
+			if (_allocator == Allocator.Invalid)
 			{
-				return dependency;
+				UnityEngine.Debug.LogError($"Calling Dispose on already Disposed {nameof(UnsafeBitmask)}");
 			}
+#endif
 			if (_allocator > Allocator.None)
 			{
-				var job = new NativeCollectionsExt.DisposeJob
+				var job = new NativeCollectionsExts.DisposeJob
 				{
-					array     = _masks,
+					array = _masks,
 					allocator = _allocator
 				};
+				this = default;
 				return job.Schedule(dependency);
 			}
 
+			this = default;
 			return dependency;
 		}
 
@@ -117,6 +127,7 @@ namespace KVD.Utils.DataStructures
 			get
 			{
 				var bucket = Bucket(index);
+				CheckBucket(bucket);
 				var masked = _masks[bucket] & BucketIndexMask(index);
 				return masked > 0;
 			}
@@ -124,6 +135,7 @@ namespace KVD.Utils.DataStructures
 			set
 			{
 				var bucket = Bucket(index);
+				CheckBucket(bucket);
 				if (value)
 				{
 					_masks[bucket] |= BucketIndexMask(index);
@@ -133,6 +145,29 @@ namespace KVD.Utils.DataStructures
 					_masks[bucket] &= ~BucketIndexMask(index);
 				}
 			}
+		}
+
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public readonly bool4 LoadSIMD(uint index)
+		{
+			var bucket = Bucket(index);
+			CheckBucket(bucket);
+			var indexInBucket = (int)BucketIndex(index);
+			var mask = 0b1111ul << indexInBucket;
+			var masked = _masks[bucket] & mask;
+			var valueMask = (uint)(masked >> indexInBucket);
+			return (valueMask & new uint4(1, 2, 4, 8)) > 0;
+		}
+
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public readonly void StoreSIMD(uint index, bool4 value)
+		{
+			var bucket = Bucket(index);
+			CheckBucket(bucket);
+			var indexInBucket = (int)BucketIndex(index);
+			var mask = 0b1111ul << indexInBucket;
+			var maskedValue = ((ulong)math.bitmask(value)) << indexInBucket;
+			_masks[bucket] = (_masks[bucket] & ~mask) | maskedValue;
 		}
 
 		[Il2CppSetOption(Option.ArrayBoundsChecks, false), Il2CppSetOption(Option.NullChecks, false)]
@@ -167,9 +202,9 @@ namespace KVD.Utils.DataStructures
 		public void Down(uint index, uint length)
 		{
 			var startBucket = Bucket(index);
-			var endBucket = Bucket(index + length - 1);
-			var startMask = (1ul << (int)BucketIndex(index)) - 1;
-			var endMask = ~((1ul << (int)BucketIndex(index + length)) - 1);
+			var endBucket = Bucket(index+length-1);
+			var startMask = (1ul << (int)BucketIndex(index))-1;
+			var endMask = ~((1ul << (int)BucketIndex(index+length))-1);
 			if (startBucket == endBucket)
 			{
 				_masks[startBucket] &= startMask | endMask;
@@ -178,7 +213,7 @@ namespace KVD.Utils.DataStructures
 			{
 				_masks[startBucket] &= startMask;
 				_masks[endBucket] &= endMask;
-				for (var i = startBucket + 1; i < endBucket; i++)
+				for (var i = startBucket+1; i < endBucket; i++)
 				{
 					_masks[i] = 0;
 				}
@@ -204,12 +239,44 @@ namespace KVD.Utils.DataStructures
 		public readonly uint CountOnes()
 		{
 			var bucketsLength = BucketsLength;
-			var count         = 0u;
+			var count = 0u;
 			for (var i = 0; i < bucketsLength; i++)
 			{
 				count += (uint)math.countbits(_masks[i]);
 			}
 			return count;
+		}
+
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public readonly uint CountOnes(uint start, uint end)
+		{
+			var startBucket = Bucket(start);
+			var endBucket = Bucket(end);
+
+			var startBucketIndex = BucketIndex(start);
+			var firstMask = ~((1ul << (int)startBucketIndex)-1);
+
+			var endBucketIndex = BucketIndex(end);
+			var endMask = (1ul << (int)endBucketIndex)-1;
+
+			if (endBucket == startBucket)
+			{
+				var mask = firstMask & endMask;
+				return (uint)math.countbits(_masks[startBucket] & mask);
+			}
+			else
+			{
+				var count = (uint)math.countbits(_masks[startBucket] & firstMask);
+
+				for (var i = startBucket+1; i < endBucket; i++)
+				{
+					count += (uint)math.countbits(_masks[i]);
+				}
+
+				count += (uint)math.countbits(_masks[endBucket] & endMask);
+
+				return count;
+			}
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -228,10 +295,61 @@ namespace KVD.Utils.DataStructures
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public readonly bool AllSet()
+		{
+			var bucketsLength = BucketsLength;
+			for (var i = 0; i < bucketsLength-1; i++)
+			{
+				if (_masks[i] != ulong.MaxValue)
+				{
+					return false;
+				}
+			}
+
+			return (_masks[bucketsLength-1] | _lastMaskComplement) == ulong.MaxValue;
+		}
+
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public readonly bool NoneSet()
+		{
+			var bucketsLength = BucketsLength;
+			for (var i = 0; i < bucketsLength-1; i++)
+			{
+				if (_masks[i] != 0)
+				{
+					return false;
+				}
+			}
+
+			return _masks[bucketsLength-1] == 0;
+		}
+
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public readonly bool AllSame()
+		{
+			var bucketsLength = BucketsLength;
+			for (var i = 0; i < bucketsLength-1; i++)
+			{
+				if ((_masks[i] != 0) & (_masks[i] != ulong.MaxValue))
+				{
+					return false;
+				}
+
+				if ((_masks[i] & 1) != (_masks[i+1] & 1))
+				{
+					return false;
+				}
+			}
+
+			var lastMask = _masks[bucketsLength-1];
+			return !((lastMask != 0) & ((lastMask | _lastMaskComplement) != ulong.MaxValue));
+		}
+
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public readonly int FirstZero()
 		{
 			var bucketsLength = BucketsLength;
-			var lastBucket    = bucketsLength-1;
+			var lastBucket = bucketsLength-1;
 			for (var i = 0; i < lastBucket; i++)
 			{
 				if (_masks[i] != ulong.MaxValue)
@@ -264,11 +382,11 @@ namespace KVD.Utils.DataStructures
 		public readonly int LastOne()
 		{
 			var bucketsLength = BucketsLength;
-			for (var i = bucketsLength - 1; i >= 0; i--)
+			for (var i = bucketsLength-1; i >= 0; i--)
 			{
 				if (_masks[i] != 0)
 				{
-					return i * 64 + (63 - math.lzcnt(_masks[i]));
+					return i*64+(63-math.lzcnt(_masks[i]));
 				}
 			}
 
@@ -306,7 +424,7 @@ namespace KVD.Utils.DataStructures
 		public void Exclude(UnsafeBitmask other)
 		{
 			var otherBucketLength = other.BucketsLength;
-			var myBucketLength    = BucketsLength;
+			var myBucketLength = BucketsLength;
 
 			var minBucketLength = myBucketLength < otherBucketLength ? myBucketLength : otherBucketLength;
 			for (var i = 0; i < minBucketLength; ++i)
@@ -397,6 +515,11 @@ namespace KVD.Utils.DataStructures
 			return 1ul << (int)BucketIndex(index);
 		}
 
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		readonly void CheckBucket(uint bucket)
+		{
+		}
+
 		[return: AssumeRange(0, int.MaxValue)]
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		internal static int AssumePositive(int value)
@@ -414,11 +537,11 @@ namespace KVD.Utils.DataStructures
 
 			public OnesEnumerator(in UnsafeBitmask data)
 			{
-				_masks         = data._masks;
+				_masks = data._masks;
 				_bucketsLength = data.BucketsLength;
-				_bucketIndex   = 0;
-				_mask          = ulong.MaxValue;
-				_index         = -1;
+				_bucketIndex = 0;
+				_mask = ulong.MaxValue;
+				_index = -1;
 			}
 
 			public bool MoveNext()
@@ -500,7 +623,7 @@ namespace KVD.Utils.DataStructures
 				{
 					var result = new bool[_data._elementsLength];
 
-					var i             = 0;
+					var i = 0;
 					var bucketsLength = _data.BucketsLength;
 					for (var j = 0; j < bucketsLength; ++j)
 					{
@@ -522,7 +645,8 @@ namespace KVD.Utils.DataStructures
 	public static class UnsafeBitmaskExtensions
 	{
 		[BurstCompile]
-		public static void ToIndicesOfOneArray(in this UnsafeBitmask bitmask, Allocator allocator,
+		public static void ToIndicesOfOneArray(
+			in this UnsafeBitmask bitmask, Allocator allocator,
 			out UnsafeArray<uint> result)
 		{
 			result = new UnsafeArray<uint>(bitmask.CountOnes(), allocator);
@@ -534,13 +658,14 @@ namespace KVD.Utils.DataStructures
 		}
 
 		[BurstCompile]
-		public static void ToArray<T, TU>(in this UnsafeBitmask bitmask, Allocator allocator, TU converter,
+		public static void ToArray<T, TU>(
+			in this UnsafeBitmask bitmask, Allocator allocator, TU converter,
 			out UnsafeArray<T> result)
 			where T : unmanaged
 			where TU : unmanaged, UnsafeBitmask.IConverter<T>
 		{
 			result = new UnsafeArray<T>(bitmask.CountOnes(), allocator);
-			var i      = 0u;
+			var i = 0u;
 			foreach (var index in bitmask.EnumerateOnes())
 			{
 				result[i++] = converter.Convert(index);
@@ -549,14 +674,14 @@ namespace KVD.Utils.DataStructures
 
 		public static ulong Size(in this UnsafeBitmask bitmask)
 		{
-			var ownSize = (ulong)UIntPtr.Size + sizeof(ulong) + sizeof(uint) + sizeof(Allocator);
+			var ownSize = (ulong)UIntPtr.Size+sizeof(ulong)+sizeof(uint)+sizeof(Allocator);
 			var bucketsSize = BucketsSize(bitmask);
-			return ownSize + bucketsSize;
+			return ownSize+bucketsSize;
 		}
 
 		public static ulong BucketsSize(in this UnsafeBitmask bitmask)
 		{
-			return (ulong)bitmask.BucketsLength * sizeof(ulong);
+			return (ulong)bitmask.BucketsLength*sizeof(ulong);
 		}
 	}
 }

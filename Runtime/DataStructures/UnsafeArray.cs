@@ -4,10 +4,10 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using KVD.Utils.Debugging;
 using KVD.Utils.Extensions;
-using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
+using Unity.Mathematics;
 
 namespace KVD.Utils.DataStructures
 {
@@ -62,7 +62,7 @@ namespace KVD.Utils.DataStructures
 
 		public UnsafeArray(uint length, Allocator allocator, NativeArrayOptions options = NativeArrayOptions.ClearMemory)
 		{
-			_length    = length;
+			_length = length;
 			_allocator = allocator;
 #if TRACK_MEMORY
 			_array =
@@ -78,15 +78,25 @@ namespace KVD.Utils.DataStructures
 			UnsafeUtility.MemClear(_array, this.Length*UnsafeUtility.SizeOf<T>());
 		}
 
-		public UnsafeArray(T* backingArray, uint length)
+		public UnsafeArray(T* backingArray, uint length) : this(backingArray, length, Allocator.None)
 		{
-			_length    = length;
-			_allocator = Allocator.None;
-			_array     = backingArray;
+		}
+
+		UnsafeArray(T* backingArray, uint length, Allocator allocator)
+		{
+			_length = length;
+			_allocator = allocator;
+			_array = backingArray;
 		}
 
 		public void Dispose()
 		{
+#if DEBUG || UNITY_EDITOR
+			if (_allocator == Allocator.Invalid)
+			{
+				UnityEngine.Debug.LogError($"Calling Dispose on already Disposed {nameof(UnsafeArray<T>)}");
+			}
+#endif
 			if (_allocator > Allocator.None)
 			{
 #if TRACK_MEMORY
@@ -95,36 +105,52 @@ namespace KVD.Utils.DataStructures
 				UnsafeUtility.Free(_array, _allocator);
 #endif
 			}
-			_array = null;
+			this = default;
 		}
 
-		public readonly JobHandle Dispose(JobHandle dependencies)
+		public JobHandle Dispose(JobHandle dependencies)
 		{
-			if (!IsCreated)
-			{
-				return dependencies;
+#if DEBUG || UNITY_EDITOR
+			if (_allocator == Allocator.Invalid) {
+				UnityEngine.Debug.LogError($"Calling Dispose on already Disposed {nameof(UnsafeArray<T>)}");
 			}
+#endif
 			if (_allocator > Allocator.None)
 			{
-				var job = new NativeCollectionsExt.DisposeJob
+				var job = new NativeCollectionsExts.DisposeJob
 				{
-					array     = _array,
+					array = _array,
 					allocator = _allocator
 				};
+				this = default;
 				return job.Schedule(dependencies);
 			}
 
+			this = default;
 			return dependencies;
 		}
 
-		public Enumerator GetEnumerator()
+		public UnsafeEnumerator<T> GetEnumerator()
 		{
-			return new(this);
+			return new(_array, _length);
 		}
 
-		public static UnsafeArray<T>.Span FromExistingData(T* data, uint length)
+		public void Fill(T value)
 		{
-			return new UnsafeArray<T>.Span(data, length);
+			UnsafeUtility.MemCpyReplicate(_array, &value, UnsafeUtility.SizeOf<T>(), (int)_length);
+		}
+
+		public UnsafeArray<TU> Move<TU>() where TU : unmanaged
+		{
+#if UNITY_EDITOR && ENABLE_UNITY_COLLECTIONS_CHECKS
+			if (UnsafeUtility.SizeOf<T>() != UnsafeUtility.SizeOf<TU>())
+			{
+				throw new InvalidOperationException($"Types {typeof(T)} and {typeof(TU)} are different sizes - direct reinterpretation is not possible");
+			}
+#endif
+			var result = new UnsafeArray<TU>((TU*)_array, _length, _allocator);
+			_array = null;
+			return result;
 		}
 
 		// From native array
@@ -163,7 +189,7 @@ namespace KVD.Utils.DataStructures
 
 		public T[] ToManagedArray()
 		{
-			var      array    = new T[_length];
+			var array = new T[_length];
 			var gcHandle = GCHandle.Alloc(array, GCHandleType.Pinned);
 			UnsafeUtility.MemCpy(gcHandle.AddrOfPinnedObject().ToPointer(), Ptr, _length*UnsafeUtility.SizeOf<T>());
 			gcHandle.Free();
@@ -175,85 +201,38 @@ namespace KVD.Utils.DataStructures
 			return new NativeAllocation(_array, _allocator);
 		}
 
-		public ReadOnlySpan<ulong> AsReadOnlySpan()
+		public static implicit operator UnsafeSpan<T>(UnsafeArray<T> array)
 		{
-			return new ReadOnlySpan<ulong>(_array, (int)_length);
+			return new UnsafeSpan<T>(array._array, array._length);
 		}
 
-		public static implicit operator UnsafeArray<T>.Span(UnsafeArray<T> array)
+		public static void Resize(ref UnsafeArray<T> array, uint newLength, NativeArrayOptions options = NativeArrayOptions.ClearMemory)
 		{
-			return FromExistingData(array._array, array._length);
+			var newArray = new UnsafeArray<T>(newLength, array._allocator);
+			var copyLength = math.min(array._length, newLength);
+			UnsafeUtility.MemCpy(newArray._array, array._array, copyLength*UnsafeUtility.SizeOf<T>());
+			array.Dispose();
+			array = newArray;
+
+			var clearLength = newLength-copyLength;
+			if ((options & NativeArrayOptions.ClearMemory) != NativeArrayOptions.ClearMemory | clearLength < 1)
+			{
+				return;
+			}
+			UnsafeUtility.MemClear(newArray._array+copyLength, clearLength*UnsafeUtility.SizeOf<T>());
 		}
 
 		// From native array
 		[Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
 		void CheckReinterpretRange<U>(uint sourceIndex) where U : struct
 		{
-			var bytesSize       = _length*UnsafeUtility.SizeOf<T>();
+			var bytesSize = _length*UnsafeUtility.SizeOf<T>();
 			var bytesStartRange = sourceIndex*UnsafeUtility.SizeOf<T>();
-			var bytesEndRange   = bytesStartRange+UnsafeUtility.SizeOf<U>();
+			var bytesEndRange = bytesStartRange+UnsafeUtility.SizeOf<U>();
 			if (bytesEndRange > bytesSize)
 			{
 				throw new ArgumentOutOfRangeException(nameof(sourceIndex),
 					"byte range must fall inside container bounds");
-			}
-		}
-
-		[Serializable]
-		public ref struct Enumerator
-		{
-			readonly T* _array;
-			readonly uint _length;
-			uint _index;
-
-			internal Enumerator(UnsafeArray<T> array)
-			{
-				_array  = array._array;
-				_length = array._length;
-				_index  = uint.MaxValue;
-			}
-
-			public void Dispose() {}
-
-			public bool MoveNext()
-			{
-				return ++_index < _length;
-			}
-
-			public ref T Current => ref _array[_index];
-		}
-
-		public readonly struct Span
-		{
-			[NativeDisableUnsafePtrRestriction] readonly T* _array;
-			readonly uint _length;
-
-			public T* Ptr => _array;
-			public uint Length => _length;
-			public int LengthInt => (int)_length;
-			public bool IsValid => _array != null;
-
-			public Span(T* array, uint length)
-			{
-				_array  = array;
-				_length = length;
-			}
-
-			public ref T this[uint index]
-			{
-				[MethodImpl(MethodImplOptions.AggressiveInlining)]
-				get
-				{
-#if UNITY_EDITOR || DEBUG
-					Assert.ArrayIndex(index, _length);
-#endif
-					return ref *(_array+index);
-				}
-			}
-
-			public UnsafeArray<T> AsUnsafeArray()
-			{
-				return new UnsafeArray<T>(_array, _length);
 			}
 		}
 

@@ -56,9 +56,9 @@ namespace KVD.Utils.DataStructures
 
 			//Swap the node with the last node
 			var formerLastNode = _nodes[_numNodes];
-			var lastNodeData   = _dataByNode[formerLastNode];
-			_nodes[1]                   = formerLastNode;
-			lastNodeData.queueIndex     = 1;
+			var lastNodeData = _dataByNode[formerLastNode];
+			_nodes[1] = formerLastNode;
+			lastNodeData.queueIndex = 1;
 			_dataByNode[formerLastNode] = lastNodeData;
 			_numNodes--;
 
@@ -66,7 +66,7 @@ namespace KVD.Utils.DataStructures
 			CascadeDown(formerLastNode, lastNodeData);
 			return returnMe;
 		}
-		
+
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public void UpdatePriority(T node, float priority)
 		{

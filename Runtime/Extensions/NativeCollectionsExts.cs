@@ -1,80 +1,20 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.Threading;
 using KVD.Utils.DataStructures;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
+using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.Assertions;
 
 namespace KVD.Utils.Extensions
 {
-	public static class NativeCollectionsExt
+	public static class NativeCollectionsExts
 	{
-		public static int SafeCapacity(this in NativeBitArray collection)
-		{
-			if (collection.IsCreated)
-			{
-				return collection.Capacity;
-			}
-			return 0;
-		}
-
-		public static int SafeBucketsLength(this in UnsafeBitmask collection)
-		{
-			if (collection.IsCreated)
-			{
-				return collection.BucketsLength;
-			}
-			return 0;
-		}
-
-		public static uint SafeElementsLength(this in UnsafeBitmask collection)
-		{
-			if (collection.IsCreated)
-			{
-				return collection.ElementsLength;
-			}
-			return 0;
-		}
-
-		public static int SafeCapacity<T>(this in NativeList<T> collection) where T : unmanaged
-		{
-			if (collection.IsCreated)
-			{
-				return collection.Capacity;
-			}
-			return 0;
-		}
-
-		public static int SafeCapacity<T>(this in UnsafeList<T> collection) where T : unmanaged
-		{
-			if (collection.IsCreated)
-			{
-				return collection.Capacity;
-			}
-			return 0;
-		}
-
-		public static int SafeLength<T>(this in NativeList<T> collection) where T : unmanaged
-		{
-			if (collection.IsCreated)
-			{
-				return collection.Length;
-			}
-			return 0;
-		}
-
-		public static int SafeLength<T>(this in NativeArray<T> collection) where T : unmanaged
-		{
-			if (collection.IsCreated)
-			{
-				return collection.Length;
-			}
-			return 0;
-		}
-
 		public static int FindIndexOf<T, U>(this in NativeArray<T> array, U search, int startIndex = 0) where T : unmanaged where U : unmanaged, IEquatable<T>
 		{
 			for (var i = startIndex; i < array.Length; i++)
@@ -99,13 +39,25 @@ namespace KVD.Utils.Extensions
 			return -1;
 		}
 
-		public static int FindIndexOf<T, U>(this in UnsafeArray<T> array, U search, int startIndex = 0) where T : unmanaged where U : unmanaged, IEquatable<T>
+		public static int FindIndexOf<T, U>(this in UnsafeArray<T> array, U search, uint startIndex = 0) where T : unmanaged where U : unmanaged, IEquatable<T>
 		{
 			for (var i = startIndex; i < array.Length; i++)
 			{
 				if (search.Equals(array[i]))
 				{
-					return i;
+					return (int)i;
+				}
+			}
+			return -1;
+		}
+
+		public static int FindIndexOf<T, U>(this in UnsafeSpan<T> span, U search, uint startIndex = 0) where T : unmanaged where U : unmanaged, IEquatable<T>
+		{
+			for (var i = startIndex; i < span.Length; i++)
+			{
+				if (search.Equals(span[i]))
+				{
+					return (int)i;
 				}
 			}
 			return -1;
@@ -160,52 +112,43 @@ namespace KVD.Utils.Extensions
 			}
 		}
 
-		public static void EnsureLengthWithFillNewCapacity<T>(this ref NativeList<T> list, int length, T fillValue) where T : unmanaged
+		public static unsafe void Sort<T, U>(in UnsafeSpan<T> span, U comparer) where T : unmanaged where U : IComparer<T>
 		{
-			if (list.Length < length)
-			{
-				var prevCapacity = list.Capacity;
-				list.Resize(length, NativeArrayOptions.UninitializedMemory);
-				if (list.Capacity <= prevCapacity)
-				{
-					return;
-				}
-				list.FillUpToCapacity(prevCapacity, fillValue);
-			}
+			NativeSortExtension.Sort(span.Ptr, (int)span.Length, comparer);
 		}
 
-		public static unsafe void FillUpToCapacity<T>(this ref NativeList<T> list, int startIndex, T fillValue) where T : unmanaged
+		public static unsafe void Sort<T, U>(in UnsafeArray<T> array, U comparer) where T : unmanaged where U : IComparer<T>
 		{
-			var capacity = list.Capacity;
-			if (startIndex < 0 || startIndex >= capacity)
-			{
-				LogErrorIndexIsOutOfRangeForCapacity(startIndex, capacity);
-				return;
-			}
-			int sizeOfT = UnsafeUtility.SizeOf<T>();
-			void* destPtr = ((byte*)list.GetUnsafePtr()) + (sizeOfT * startIndex);
-			T* fillValuePtr = &fillValue;
-			var elementsCount = capacity - startIndex;
-			UnsafeUtility.MemCpyReplicate(destPtr, fillValuePtr, sizeOfT, elementsCount);
+			Sort((UnsafeSpan<T>)array, comparer);
+		}
+
+		public static unsafe void Sort<T>(in UnsafeSpan<T> span) where T : unmanaged, IComparable<T>
+		{
+			NativeSortExtension.Sort(span.Ptr, (int)span.Length, new NativeSortExtension.DefaultComparer<T>());
+		}
+
+		public static unsafe void Sort<T>(in UnsafeArray<T> array) where T : unmanaged, IComparable<T>
+		{
+			Sort((UnsafeSpan<T>)array);
 		}
 
 		public static unsafe T[] ToArray<T>(this in UnsafeList<T>.ReadOnly list) where T : unmanaged
 		{
-			T[] dst = new T[list.Length];
+			var dst = new T[list.Length];
 			var gcHandle = GCHandle.Alloc(dst, GCHandleType.Pinned);
 			UnsafeUtility.MemCpy(gcHandle.AddrOfPinnedObject().ToPointer(), list.Ptr, list.Length * UnsafeUtility.SizeOf<T>());
 			gcHandle.Free();
 			return dst;
 		}
 
-		public static unsafe UnsafeArray<T>.Span AsUnsafeSpan<T>(this in UnsafeList<T> list) where T : unmanaged
+		public static unsafe UnsafeSpan<T> AsUnsafeSpan<T>(this in UnsafeList<T> list) where T : unmanaged
 		{
-			return UnsafeArray<T>.FromExistingData(list.Ptr, (uint)list.Length);
+			return new UnsafeArray<T>(list.Ptr, (uint)list.Length);
 		}
 
-		public static unsafe UnsafeArray<T>.Span AsUnsafeSpan<T>(this in UnsafeList<T>.ReadOnly list) where T : unmanaged
+		public static unsafe UnsafeSpan<T> AsUnsafeSpan<T>(this in UnsafeList<T>.ReadOnly list) where T : unmanaged
 		{
-			return UnsafeArray<T>.FromExistingData(list.Ptr, (uint)list.Length);
+			return new UnsafeArray<T>(list.Ptr, (uint)list.Length);
 		}
 
 		public static unsafe ReadOnlySpan<byte> ToByteSpan<T>(this in NativeArray<T> array) where T : unmanaged
@@ -238,6 +181,18 @@ namespace KVD.Utils.Extensions
 			var atomicSafetyHandler = AtomicSafetyHandle.GetTempMemoryHandle();
 			NativeArrayUnsafeUtility.SetAtomicSafetyHandle(ref array, atomicSafetyHandler);
 #endif
+			return array;
+		}
+
+		public static UnsafeArray<T> ToUnsafeArray<T>(this UnsafeList<T> list, Allocator allocator) where T : unmanaged
+		{
+			return list.ToUnsafeArray(allocator, 0, list.Length);
+		}
+
+		public static unsafe UnsafeArray<T> ToUnsafeArray<T>(this UnsafeList<T> list, Allocator allocator, int startIndex, int length) where T : unmanaged
+		{
+			var array = new UnsafeArray<T>((uint)length, allocator, NativeArrayOptions.UninitializedMemory);
+			UnsafeUtility.MemCpy(array.Ptr, list.Ptr + startIndex, length * UnsafeUtility.SizeOf<T>());
 			return array;
 		}
 
@@ -394,6 +349,93 @@ namespace KVD.Utils.Extensions
 		public interface IConverter<in T, out U> where T : unmanaged where U : unmanaged
 		{
 			U Convert(T value);
+		}
+
+		public static unsafe int ThreadSafeAddNoResize<T>(this ref UnsafeList<T> list, T value) where T : unmanaged
+		{
+			var idx = Interlocked.Increment(ref list.m_length)-1;
+			UnsafeUtility.WriteArrayElement(list.Ptr, idx, value);
+			return idx;
+		}
+
+		public static unsafe int ThreadSafeAddNoResize<T>(this ref NativeList<T> list, T value) where T : unmanaged
+		{
+			var idx = Interlocked.Increment(ref list.GetUnsafeList()->m_length)-1;
+			UnsafeUtility.WriteArrayElement(list.GetUnsafeList()->Ptr, idx, value);
+			return idx;
+		}
+
+		public static void Resize<T>(this ref NativeArray<T> array, int newSize, Allocator allocator, NativeArrayOptions nativeArrayOptions = NativeArrayOptions.ClearMemory)
+			where T : unmanaged
+		{
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+			Assert.IsTrue(newSize > array.Length);
+#endif
+			var arrayCopy = new NativeArray<T>(newSize, allocator, nativeArrayOptions);
+			arrayCopy.GetSubArray(0, array.Length).CopyFrom(array);
+			array = arrayCopy;
+		}
+
+		public static unsafe void Resize<T>(this ref UnsafeArray<T> array, uint newSize, NativeArrayOptions nativeArrayOptions = NativeArrayOptions.ClearMemory) where T : unmanaged
+		{
+			var copyCount = math.min(array.Length, newSize);
+			var arrayCopy = new UnsafeArray<T>(newSize, array.Allocator, NativeArrayOptions.UninitializedMemory);
+			UnsafeUtility.MemCpy(arrayCopy.Ptr, array.Ptr, copyCount*UnsafeUtility.SizeOf<T>());
+			if (((nativeArrayOptions & NativeArrayOptions.ClearMemory) == NativeArrayOptions.ClearMemory) & newSize > array.Length)
+			{
+				UnsafeUtility.MemClear(arrayCopy.Ptr+array.Length, (newSize-array.Length)*UnsafeUtility.SizeOf<T>());
+			}
+			array = arrayCopy;
+		}
+
+		public static NativeArray<T> CreateCopy<T>(this NativeArray<T> array, Allocator allocator) where T : unmanaged
+		{
+			var arrayCopy = new NativeArray<T>(array.Length, allocator, NativeArrayOptions.UninitializedMemory);
+			arrayCopy.CopyFrom(array);
+			return arrayCopy;
+		}
+
+		public static bool SequenceEqual<T, U>(this in UnsafeArray<T> array, in UnsafeArray<U> other) where T : unmanaged where U : unmanaged, IEquatable<T>
+		{
+			if (!array.IsCreated)
+			{
+				return !other.IsCreated;
+			}
+			var length = array.Length;
+			if (length != other.Length)
+			{
+				return false;
+			}
+			for (var i = 0u; i < length; i++)
+			{
+				if (!other[i].Equals(array[i]))
+				{
+					return false;
+				}
+			}
+			return true;
+		}
+
+		public static int SequenceHashCode<T>(this in UnsafeArray<T> array) where T : unmanaged
+		{
+			if (!array.IsCreated)
+			{
+				return 0;
+			}
+			if (array.Length == 0)
+			{
+				return 0;
+			}
+			var hash = (int)array.Allocator;
+			unchecked
+			{
+				hash = (hash*397) ^ (int)array.Length;
+				for (var i = 0u; i < array.Length; i++)
+				{
+					hash = (hash*397) ^ array[i].GetHashCode();
+				}
+			}
+			return hash;
 		}
 
 		[BurstCompile]
