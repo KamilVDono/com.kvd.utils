@@ -13,7 +13,6 @@ namespace KVD.Utils.Editor.SizeAnalysis
 	public class ComponentAnalyzerWindow : EditorWindow
 	{
 		private const string Title = "Analyze components & enums size";
-		private const string MenuTitle = "KVD/"+Title;
 		private static readonly GUIContent TitleContent = new(Title);
 
 		private static TreeViewState? _treeViewState;
@@ -24,7 +23,7 @@ namespace KVD.Utils.Editor.SizeAnalysis
 		private bool _showEnums = true;
 		private string _excludeString = "System,Unity,mscorlib,Mono,nunit,bee,Rotorz,Newtonsoft,Novell,xNode,SyntaxTree,Hierarchy2,NaughtyAttributes,UniTask,Lucene,SuperEditor,J2N,ExCSS,JetBrains";
 
-		[MenuItem(MenuTitle, priority = 200)]
+		[MenuItem(KVDConsts.MenuItemPrefix+"/"+Title, priority = 200)]
 		private static void ShowWindow()
 		{
 			var window = GetWindow<ComponentAnalyzerWindow>();
