@@ -112,6 +112,28 @@ namespace KVD.Utils.Extensions
 			}
 		}
 
+		public static bool RemoveSwapBack<T, U>(this ref UnsafeList<T> list, U value) where T : unmanaged where U : unmanaged, IEquatable<T>
+		{
+			var index = list.FindIndexOf(value);
+			if (index >= 0)
+			{
+				list.RemoveAtSwapBack(index);
+				return true;
+			}
+			return false;
+		}
+
+		public static bool Remove<T, U>(this ref UnsafeList<T> list, U value) where T : unmanaged where U : unmanaged, IEquatable<T>
+		{
+			var index = list.FindIndexOf(value);
+			if (index >= 0)
+			{
+				list.RemoveAt(index);
+				return true;
+			}
+			return false;
+		}
+
 		public static unsafe void Sort<T, U>(in UnsafeSpan<T> span, U comparer) where T : unmanaged where U : IComparer<T>
 		{
 			NativeSortExtension.Sort(span.Ptr, (int)span.Length, comparer);

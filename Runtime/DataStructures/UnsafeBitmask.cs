@@ -395,7 +395,7 @@ namespace KVD.Utils.DataStructures
 
 		public void Union(in UnsafeBitmask other)
 		{
-			EnsureCapacity(other._elementsLength);
+			EnsureElementsCapacity(other._elementsLength);
 
 			// We are at least other._masks size
 			var otherBucketLength = other.BucketsLength;
@@ -435,10 +435,10 @@ namespace KVD.Utils.DataStructures
 
 		public void EnsureIndex(uint elementIndex)
 		{
-			EnsureCapacity(elementIndex+1u);
+			EnsureElementsCapacity(elementIndex+1u);
 		}
 
-		public void EnsureCapacity(uint elementsLength)
+		public void EnsureElementsCapacity(uint elementsLength)
 		{
 #if UNITY_EDITOR || DEBUG
 			if (_allocator <= Allocator.None)

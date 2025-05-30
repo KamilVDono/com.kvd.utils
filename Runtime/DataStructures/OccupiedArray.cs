@@ -81,19 +81,34 @@ namespace KVD.Utils.DataStructures
 			}
 		}
 
-		public bool TryInsert(T value, out uint uSlot)
+		public bool TryInsert(in T value, out uint uIndex)
 		{
 			var index = occupied.FirstZero();
 			if (index == -1)
 			{
-				uSlot = InvalidIndex;
+				uIndex = InvalidIndex;
 				return false;
 			}
 
-			uSlot = (uint)index;
-			occupied.Up(uSlot);
-			array[uSlot] = value;
+			uIndex = (uint)index;
+			occupied.Up(uIndex);
+			array[uIndex] = value;
 			return true;
+		}
+
+		public uint Insert(in T value)
+		{
+			var index = occupied.FirstZero();
+			if (index == -1)
+			{
+				Resize(Length * 2);
+				index = occupied.FirstZero();
+			}
+
+			var uIndex = (uint)index;
+			occupied.Up(uIndex);
+			array[uIndex] = value;
+			return uIndex;
 		}
 
 		public void Release(uint index, bool clear = true)
@@ -102,6 +117,80 @@ namespace KVD.Utils.DataStructures
 			if (clear)
 			{
 				array[index] = default;
+			}
+		}
+
+		public void Resize(uint newLength, NativeArrayOptions options = NativeArrayOptions.ClearMemory)
+		{
+			UnsafeArray<T>.Resize(ref array, newLength, options);
+			occupied.EnsureElementsCapacity(newLength);
+		}
+
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public readonly OccupiedEnumerator EnumerateOccupied() => new OccupiedEnumerator(this);
+
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public readonly OccupiedIndexedEnumerator EnumerateOccupiedIndexed() => new OccupiedIndexedEnumerator(this);
+
+		public unsafe ref struct OccupiedEnumerator
+		{
+			T* _array;
+			UnsafeBitmask.OnesEnumerator _onesEnumerator;
+
+			public OccupiedEnumerator(OccupiedArray<T> occupiedArray)
+			{
+				_array = occupiedArray.array.Ptr;
+				_onesEnumerator = occupiedArray.occupied.EnumerateOnes();
+			}
+
+			public bool MoveNext()
+			{
+				return _onesEnumerator.MoveNext();
+			}
+
+			public ref T Current => ref _array[_onesEnumerator.Current];
+
+			public OccupiedEnumerator GetEnumerator() => this;
+		}
+
+		public unsafe ref struct OccupiedIndexedEnumerator
+		{
+			T* _array;
+			UnsafeBitmask.OnesEnumerator _onesEnumerator;
+
+			public OccupiedIndexedEnumerator(OccupiedArray<T> occupiedArray)
+			{
+				_array = occupiedArray.array.Ptr;
+				_onesEnumerator = occupiedArray.occupied.EnumerateOnes();
+			}
+
+			public bool MoveNext()
+			{
+				return _onesEnumerator.MoveNext();
+			}
+
+			public ItemWithIndex Current => new(_array +_onesEnumerator.Current, _onesEnumerator.Current);
+
+			public OccupiedIndexedEnumerator GetEnumerator() => this;
+
+			public readonly ref struct ItemWithIndex
+			{
+				public readonly T* item;
+				public readonly uint index;
+
+				public ref T Value => ref *item;
+
+				public ItemWithIndex(T* item, uint index)
+				{
+					this.item = item;
+					this.index = index;
+				}
+
+				public void Deconstruct(out T* item, out uint index)
+				{
+					item = this.item;
+					index = this.index;
+				}
 			}
 		}
 
