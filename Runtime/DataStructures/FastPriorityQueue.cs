@@ -4,8 +4,16 @@ using Unity.Collections;
 
 namespace KVD.Utils.DataStructures
 {
+	/// <summary>
+	/// A fast priority queue implementation using a binary heap.
+	/// </summary>
+	/// <typeparam name="T">Item data type</typeparam>
+	/// <typeparam name="U">
+	/// Priority type.
+	/// <remarks>CompareTo lower means higher priority</remarks>
+	/// </typeparam>
 	[GenerateTestsForBurstCompatibility]
-	public struct FastPriorityQueue<T> : IDisposable where T : unmanaged, IEquatable<T>
+	public struct FastPriorityQueue<T, U> : IDisposable where T : unmanaged, IEquatable<T> where U : unmanaged, IComparable<U>
 	{
 		private uint _numNodes;
 		private UnsafeArray<T> _nodes;
@@ -29,7 +37,7 @@ namespace KVD.Utils.DataStructures
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public void Enqueue(T node, float priority)
+		public void Enqueue(T node, U priority)
 		{
 			_numNodes++;
 			_nodes[_numNodes] = node;
@@ -68,7 +76,7 @@ namespace KVD.Utils.DataStructures
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public void UpdatePriority(T node, float priority)
+		public void UpdatePriority(T node, U priority)
 		{
 			var data = _dataByNode[node];
 			data.priority     = priority;
@@ -358,18 +366,18 @@ namespace KVD.Utils.DataStructures
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		private static bool HasHigherPriority(NodeData higher, NodeData lower)
 		{
-			return higher.priority < lower.priority;
+			return higher.priority.CompareTo(lower.priority) < 0;
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		private static bool HasHigherOrEqualPriority(NodeData higher, NodeData lower)
 		{
-			return higher.priority <= lower.priority;
+			return higher.priority.CompareTo(lower.priority) <= 0;
 		}
 
 		private struct NodeData
 		{
-			public float priority;
+			public U priority;
 			public uint queueIndex;
 		}
 	}

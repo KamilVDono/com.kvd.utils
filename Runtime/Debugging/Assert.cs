@@ -49,5 +49,15 @@ namespace KVD.Utils.Debugging
 				throw new AssertionException("Value is true but expected false", message);
 			}
 		}
+
+		[Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static void GreaterThan(uint value, uint threshold, string message = "")
+		{
+			if (value <= threshold)
+			{
+				throw new AssertionException($"Value {value} is not greater than {threshold}", message);
+			}
+		}
 	}
 }
