@@ -2,6 +2,7 @@
 using KVD.Utils.Debugging;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using Unity.Mathematics;
 
 namespace KVD.Utils.DataStructures
 {
@@ -101,7 +102,7 @@ namespace KVD.Utils.DataStructures
 				return;
 			}
 
-			var newSize = count * 2;
+			var newSize = math.max(count * 2, 12);
 			UnsafeArray<T>.Resize(ref items, newSize, NativeArrayOptions.UninitializedMemory);
 			UnsafeArray<TPriority>.Resize(ref priorities, newSize, NativeArrayOptions.UninitializedMemory);
 		}
