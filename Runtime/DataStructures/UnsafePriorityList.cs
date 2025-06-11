@@ -109,28 +109,25 @@ namespace KVD.Utils.DataStructures
 
 		int BinarySearch(TPriority priority)
 		{
-			var low = 0;
-			var high = (int)(count - 1);
-			while (low <= high)
+			var offset = 0;
+
+			for (var l = (int)count; l != 0; l >>= 1)
 			{
-				var mid = (low + high) / 2;
-				var cmp = priorities[mid].CompareTo(priority);
-				if (cmp == 0)
+				var idx = offset + (l >> 1);
+				var r = priorities[idx].CompareTo(priority);
+				if (r == 0)
 				{
-					return mid;
+					return idx;
 				}
 
-				if (cmp < 0)
+				if (r > 0)
 				{
-					low = mid + 1;
-				}
-				else
-				{
-					high = mid - 1;
+					offset = idx + 1;
+					--l;
 				}
 			}
 
-			return ~low;
+			return ~offset;
 		}
 
 		public readonly ref struct DisposeScope

@@ -65,11 +65,9 @@ namespace KVD.Utils.DataStructures
 			_length = length;
 			_allocator = allocator;
 #if TRACK_MEMORY
-			_array =
- (T*)UnsafeUtility.MallocTracked(UnsafeUtility.SizeOf<T>() * _length, UnsafeUtility.AlignOf<T>(), _allocator, 1);
+			_array = (T*)UnsafeUtility.MallocTracked(UnsafeUtility.SizeOf<T>() * _length, UnsafeUtility.AlignOf<T>(), _allocator, 1);
 #else
-			_array = (T*)UnsafeUtility.Malloc(UnsafeUtility.SizeOf<T>()*_length, UnsafeUtility.AlignOf<T>(),
-				_allocator);
+			_array = (T*)UnsafeUtility.Malloc(UnsafeUtility.SizeOf<T>()*_length, UnsafeUtility.AlignOf<T>(), _allocator);
 #endif
 			if ((options & NativeArrayOptions.ClearMemory) != NativeArrayOptions.ClearMemory)
 			{
@@ -80,6 +78,27 @@ namespace KVD.Utils.DataStructures
 
 		public UnsafeArray(T* backingArray, uint length) : this(backingArray, length, Allocator.None)
 		{
+		}
+
+		public UnsafeArray(T[] managedArray, Allocator allocator)
+		{
+			if (managedArray == null)
+			{
+				throw new ArgumentNullException(nameof(managedArray), "Managed array cannot be null");
+			}
+
+			_length = (uint)managedArray.Length;
+			_allocator = allocator;
+
+#if TRACK_MEMORY
+			_array = (T*)UnsafeUtility.MallocTracked(UnsafeUtility.SizeOf<T>() * _length, UnsafeUtility.AlignOf<T>(), _allocator, 1);
+#else
+			_array = (T*)UnsafeUtility.Malloc(UnsafeUtility.SizeOf<T>()*_length, UnsafeUtility.AlignOf<T>(), _allocator);
+#endif
+			fixed (T* ptr = managedArray)
+			{
+				UnsafeUtility.MemCpy(_array, ptr, _length*UnsafeUtility.SizeOf<T>());
+			}
 		}
 
 		UnsafeArray(T* backingArray, uint length, Allocator allocator)

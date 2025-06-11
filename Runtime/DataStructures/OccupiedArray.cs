@@ -6,7 +6,7 @@ using Unity.Collections;
 
 namespace KVD.Utils.DataStructures
 {
-	[DebuggerDisplay("Length = {Length}, IsCreated = {array.IsCreated}")]
+	[DebuggerDisplay("Length = {Length}, LastTakenCount = {LastTakenCount}, TakenCount = {TakenCount} IsCreated = {array.IsCreated}")]
 	[DebuggerTypeProxy(typeof(OccupiedArray<>.DebugView))]
 	public struct OccupiedArray<T> where T : unmanaged
 	{
@@ -21,6 +21,7 @@ namespace KVD.Utils.DataStructures
 		public readonly bool IsCreated => array.IsCreated;
 		public uint LastTakenCount => (uint)(occupied.LastOne()+1);
 		public int JobScheduleLength => occupied.LastOne()+1;
+		public uint TakenCount => occupied.CountOnes();
 
 		public ref T this[uint index]
 		{
